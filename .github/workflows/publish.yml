@@ -134,10 +134,46 @@ jobs:
           name: ${{ matrix.archive_name }}
           path: ${{ env.OUTPUT_BASE }}/${{ matrix.archive_name }}
 
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Odtwórz keystore (Artur Szafraniec)
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Nadaj uprawnienia Gradle
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Zbuduj release APK
+        working-directory: android
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TizenAppInstaller-android.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
   create_release:
     name: Create draft release and attach zips
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, build-android]
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -167,24 +203,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload release assets (all zips)
+      - name: Upload release assets (zips i APK)
         shell: bash
         run: |
           set -e
-          # get upload_url and strip the template part {?...}
           UPLOAD_URL_TEMPLATE="${{ steps.create_release.outputs.upload_url }}"
           UPLOAD_URL="${UPLOAD_URL_TEMPLATE%\{*}"
           echo "Base upload URL: $UPLOAD_URL"
 
-          find downloaded_artifacts -type f -name '*.zip' -print0 | while IFS= read -r -d '' file; do
+          upload_file() {
+            local file="$1"
+            local content_type="$2"
+            local name
             name=$(basename "$file")
             echo "Uploading $name ..."
             curl --fail -sS -X POST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/zip" \
+              -H "Content-Type: $content_type" \
               --data-binary @"$file" \
               "${UPLOAD_URL}?name=$(printf '%s' "$name" | jq -s -R -r @uri)"
             echo "Uploaded $name"
+          }
+
+          find downloaded_artifacts -type f -name '*.zip' -print0 | while IFS= read -r -d '' file; do
+            upload_file "$file" "application/zip"
+          done
+
+          find downloaded_artifacts -type f -name '*.apk' -print0 | while IFS= read -r -d '' file; do
+            upload_file "$file" "application/vnd.android.package-archive"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
