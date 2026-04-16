@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tizen App Installer</string>
+    <string name="scan_network">Scan Network</string>
+    <string name="select_file">Select .wgt File</string>
+    <string name="install">Install</string>
+    <string name="cancel">Cancel</string>
+    <string name="manual_ip_hint">Enter TV IP address manually</string>
+    <string name="connect">Connect</string>
+    <string name="scanning">Scanning network…</string>
+    <string name="no_devices_found">No Tizen TVs found</string>
+    <string name="select_device">Select a device</string>
+    <string name="upload_progress">Upload: %d%%</string>
+    <string name="install_progress">Install: %d%%</string>
+    <string name="samsung_login_title">Samsung Account Login</string>
+    <string name="uninstall">Uninstall existing app</string>
+    <string name="skip_uninstall">Skip (reinstall)</string>
+    <string name="local_ip_label">Your IP (set as TV Developer Mode host):</string>
+</resources>
